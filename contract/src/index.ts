@@ -1,5 +1,5 @@
 import { NearBindgen, near, call, view, LookupMap } from 'near-sdk-js';
-import { calculateIndex } from './model';
+import Decimal from 'decimal.js';
 
 @NearBindgen({})
 class HelloNear {
@@ -25,4 +25,25 @@ class HelloNear {
     this.accountIndexHistoryTimestamps.set(account_id, thisTimestamp);
     return { account_id: account_id, index: index, timestamp: thisTimestamp };
   }
+}
+
+function calculateIndex(account_id: string): string {
+  let score = new Decimal(0.01);
+  if (account_id in WHITELIST) {
+    return (score.add(new Decimal(0.99))).toFixed(2);
+  }
+  // TODO: query whitelisted accounts for this account_id using NearPromise
+  return score.toFixed(2);
+}
+
+class WhitelistTypes {
+  static readonly NFT = 'NFT';
+  static readonly DAO = 'DAO';
+}
+
+const WHITELIST = {
+  "asac.near": WhitelistTypes.NFT,
+  "nearnautnft.near": WhitelistTypes.NFT,
+  "secretskelliessociety.near": WhitelistTypes.NFT,
+  "kycdao.near": WhitelistTypes.DAO,
 }

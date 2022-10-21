@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/idea404/near-trust-index#readme",
   "dependencies": {
+    "decimal.js": "^10.4.2",
     "near-sdk-js": "0.6.0-0"
   },
   "devDependencies": {
@@ -38,7 +39,7 @@
     "files": [
       "test/**/*.ava.js"
     ],
-    "require": [], 
+    "require": [],
     "failFast": false,
     "timeout": "2m",
     "failWithoutAssertions": true,
@@ -47,5 +48,5 @@
     },
     "verbose": true,
     "nodeArguments": []
-  }  
+  }
 }
