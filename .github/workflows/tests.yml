@@ -3,14 +3,15 @@ on: push
 jobs:
   contract-tests:
     runs-on: ubuntu-latest
+    working-directory: ./contract
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
           node-version: "16"
       - name: Install Contract Dependencies
-        run: cd contract && npm install
+        run: npm install
       - name: Build Contract
-        run: cd contract && npm run build
+        run: npm run build
       - name: Run Contract Tests
-        run: cd contract && npm test
+        run: npm test
