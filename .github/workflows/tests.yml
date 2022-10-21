@@ -1,16 +1,16 @@
 name: Tests
 on: push
 jobs:
-  tests:
+  contract-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
           node-version: "16"
-      - name: Install dependencies
-        run: npm install
-      - name: Build contract
-        run: npm run build
-      - name: Run tests
-        run: npm test
+      - name: Install Contract Dependencies
+        run: cd contract && npm install
+      - name: Build Contract
+        run: cd contract && npm run build
+      - name: Run Contract Tests
+        run: cd contract && npm test
