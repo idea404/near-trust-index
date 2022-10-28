@@ -1,22 +1,24 @@
-import { NearBindgen, near, call, view, LookupMap, NearPromise } from "near-sdk-js";
+import { NearBindgen, near, call, view, LookupMap, NearPromise, UnorderedMap } from "near-sdk-js";
 import Decimal from "decimal.js";
 
 @NearBindgen({})
-class HelloNear {
+class NearTrustIndex {
   accountIndexHistory: LookupMap<string>;
-  accountIndexHistoryTimestamps: LookupMap<string>;
+  accountIndexHistoryTimestamp: LookupMap<string>;
+  accountResult: UnorderedMap<bigint>;
 
   constructor() {
     this.accountIndexHistory = new LookupMap("aih");
-    this.accountIndexHistoryTimestamps = new LookupMap("aiht");
+    this.accountIndexHistoryTimestamp = new LookupMap("aiht");
+    this.accountResult = new UnorderedMap("ar");
   }
 
   @view({})
   get_index_from_history({ account_id }: { account_id: string }): { account_id: string; index: string | null; timestamp: string | null } {
     if (WHITELIST[account_id]) {
-      return { account_id: account_id, index: new Decimal(1.00).toFixed(2), timestamp: near.blockTimestamp().toString() };
+      return { account_id: account_id, index: new Decimal(1.0).toFixed(2), timestamp: near.blockTimestamp().toString() };
     }
-    return { account_id: account_id, index: this.accountIndexHistory.get(account_id), timestamp: this.accountIndexHistoryTimestamps.get(account_id) };
+    return { account_id: account_id, index: this.accountIndexHistory.get(account_id), timestamp: this.accountIndexHistoryTimestamp.get(account_id) };
   }
 
   @call({ payableFunction: true })
@@ -29,20 +31,26 @@ class HelloNear {
   }
 
   @call({ privateFunction: true })
-  internalCallback({ callCount }: { callCount: number }): void {
+  internalCallback({ accountId, callCount }: { accountId: string; callCount: number }): void {
     // loop through all call counts
     for (let i = 0; i < callCount; i++) {
       try {
         const promiseResult = near.promiseResult(i);
-        const promiseObject = JSON.parse(promiseResult);
-        // check if promiseObject is a number
+        try {
+          const promiseObject = JSON.parse(promiseResult);
+          let mapKey = accountId + ":" + Object.keys(WHITELIST)[i]; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
+          this.accountResult.set(mapKey, promiseObject);
+        } catch (error) {
+          near.log("Failed saving result from successful promise for id: " + i + " with error message: " + error.message);
+        }
       } catch (error) {
         near.log(`Contract Function ${i} threw error`);
       }
     }
+    // TODO: calculate index and save it
   }
 
-  internalCalculateIndex(account_id: string ): void {
+  internalCalculateIndex(account_id: string): void {
     // query whitelisted accounts for this account_id using NearPromise
     // ----
     const thirtyTgas = BigInt("30" + "0".repeat(12));
@@ -68,7 +76,7 @@ class HelloNear {
       }
     }
     // call internalCallback
-    promise.then(NearPromise.new(near.currentAccountId()).functionCall("internalCallback", JSON.stringify({ callCount: callCount }), BigInt(0), thirtyTgas));
+    promise.then(NearPromise.new(near.currentAccountId()).functionCall("internalCallback", JSON.stringify({ accountId: account_id, callCount: callCount }), BigInt(0), thirtyTgas));
     // ----
     promise.asReturn();
   }
@@ -80,8 +88,9 @@ enum CallType {
 }
 
 const WHITELIST = {
-  "asac.near": [CallType.NFT_COUNT, CallType.NFT_ITEMS],
-  "nearnautnft.near": [CallType.NFT_COUNT, CallType.NFT_ITEMS],
-  "secretskelliessociety.near": [CallType.NFT_COUNT, CallType.NFT_ITEMS],
+  // TODO: implement xcc logic for NFT_ITEMS
+  "asac.near": [CallType.NFT_COUNT],
+  "nearnautnft.near": [CallType.NFT_COUNT],
+  "secretskelliessociety.near": [CallType.NFT_COUNT],
   "kycdao.near": [],
 };
