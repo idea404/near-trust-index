@@ -10,7 +10,8 @@
   "scripts": {
     "build": "near-sdk-js build src/index.ts build/index.wasm",
     "test": "ava",
-    "lint": "eslint ."
+    "lint": "eslint . --fix",
+    "format": "prettier --write ."
   },
   "repository": {
     "type": "git",
