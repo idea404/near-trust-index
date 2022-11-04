@@ -1,5 +1,5 @@
 /* eslint-env node */
 
 module.exports = {
-  extends: ["near"],
+  extends: ["near", "prettier"],
 };
