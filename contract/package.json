@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "near-sdk-js build src/index.ts build/index.wasm",
-    "test": "ava"
+    "test": "ava",
+    "lint": "eslint ."
   },
   "repository": {
     "type": "git",
@@ -31,9 +32,16 @@
     "near-sdk-js": "0.6.0-0"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.42.0",
     "ava": "^4.3.3",
+    "eslint": "^8.26.0",
+    "eslint-config-near": "^1.0.3",
+    "eslint-config-standard-with-typescript": "^23.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-n": "^15.4.0",
+    "eslint-plugin-promise": "^6.1.1",
     "near-workspaces": "^3.2.2",
-    "typescript": "^4.7.4"
+    "typescript": "^4.8.4"
   },
   "ava": {
     "files": [
