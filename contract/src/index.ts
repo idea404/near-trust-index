@@ -36,15 +36,17 @@ class NearTrustIndex {
   internalCallback({ accountId, callCount }: { accountId: string; callCount: number }): void {
     // loop through all call counts
     this.accountIndexHistoryFailures.set(accountId, "");
-    let accountResults: number[] = [];
+    let accountScores: number[] = [];
     for (let i = 0; i < callCount; i++) {
-      let mapKey = accountId + ":" + Object.keys(WHITELIST)[i]; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
+      let functionName = Object.keys(WHITELIST)[i];
+      let mapKey = accountId + ":" + functionName; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
       try {
         const promiseResult = near.promiseResult(i);
         try {
           const promiseObject = JSON.parse(promiseResult);
           this.accountResult.set(mapKey, promiseObject);
-          accountResults.push(promiseObject);
+          const score = functionName == CallType.NFT_COUNT ? NFTCountRubric.getScoreFromNFTCount(promiseObject) : 0;
+          accountScores.push(score);
         } catch (error) {
           const msg = "Failed saving result from successful promise for id: " + i + " with error message: " + error.message
           near.log(msg);
@@ -58,7 +60,7 @@ class NearTrustIndex {
     }
     // we save the new scores for every account and timestamp every record
     const timestamp = near.blockTimestamp().toString();
-    const accountIndex = calculateIndexFromResultsArray(accountResults);
+    const accountIndex = calculateIndexFromScoresArray(accountScores);
     // we iterate through accountAverageScores
     this.accountIndexHistory.set(accountId, accountIndex)
     this.accountIndexHistoryTimestamp.set(accountId, timestamp)
@@ -96,11 +98,11 @@ class NearTrustIndex {
   }
 }
 
-export function calculateIndexFromResultsArray(accountResults: number[]): string {
+export function calculateIndexFromScoresArray(accountScores: number[]): string {
   let accountIndex = new Decimal(0);
-  const accountResultLength = accountResults.length;
+  const accountResultLength = accountScores.length;
   for (let i = 0; i < accountResultLength; i++) {
-    accountIndex = accountIndex.plus(new Decimal(accountResults[i]));
+    accountIndex = accountIndex.plus(new Decimal(accountScores[i]));
   }
   accountIndex = accountIndex.dividedBy(accountResultLength);
   return accountIndex.toFixed(2);
