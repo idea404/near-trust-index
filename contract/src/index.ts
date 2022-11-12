@@ -5,7 +5,7 @@ import Decimal from "decimal.js";
 class NearTrustIndex {
   accountIndexHistory: LookupMap<string>;
   accountIndexHistoryTimestamp: LookupMap<string>;
-  accountIndexHistoryFailures: LookupMap<string>; 
+  accountIndexHistoryFailures: LookupMap<string>;
   accountResult: UnorderedMap<bigint>;
 
   constructor() {
@@ -35,33 +35,33 @@ class NearTrustIndex {
   @call({ privateFunction: true })
   internalCallback({ accountId, callCount }: { accountId: string; callCount: number }): void {
     // loop through all call counts
-    // TODO: handle failures and pass results. What to do with previous account failures? 
-    // TODO: do we score relative or do we grant scores based on thresholds?
     this.accountIndexHistoryFailures.set(accountId, "");
+    let accountResults: number[] = [];
     for (let i = 0; i < callCount; i++) {
+      let mapKey = accountId + ":" + Object.keys(WHITELIST)[i]; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
       try {
         const promiseResult = near.promiseResult(i);
         try {
           const promiseObject = JSON.parse(promiseResult);
-          let mapKey = accountId + ":" + Object.keys(WHITELIST)[i]; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
           this.accountResult.set(mapKey, promiseObject);
+          accountResults.push(promiseObject);
         } catch (error) {
-          near.log("Failed saving result from successful promise for id: " + i + " with error message: " + error.message);
+          const msg = "Failed saving result from successful promise for id: " + i + " with error message: " + error.message
+          near.log(msg);
+          this.accountIndexHistoryFailures.set(mapKey, msg);
         }
       } catch (error) {
-        near.log(`Contract Function ${i} threw error`);
-        this.accountIndexHistoryFailures.set()
+        const msg = `Contract Function ${i} threw error`
+        near.log(msg);
+        this.accountIndexHistoryFailures.set(mapKey, msg)
       }
     }
-    // recalculates indexes with new function results
-    const accountAverageScores = calculateIndexes(this.accountResult);
     // we save the new scores for every account and timestamp every record
     const timestamp = near.blockTimestamp().toString();
+    const accountIndex = calculateIndexFromResultsArray(accountResults);
     // we iterate through accountAverageScores
-    for (const accountId of Object.keys(accountAverageScores)) {
-      this.accountIndexHistory.set(accountId, accountAverageScores[accountId])
-      this.accountIndexHistoryTimestamp.set(accountId, timestamp)
-    }
+    this.accountIndexHistory.set(accountId, accountIndex)
+    this.accountIndexHistoryTimestamp.set(accountId, timestamp)
   }
 
   internalCalculateIndex(account_id: string): void {
@@ -96,69 +96,31 @@ class NearTrustIndex {
   }
 }
 
-export function calculateIndexes(contractAccountResults: UnorderedMap<bigint>): object {
-  // we need max and min for every accountId:function
-  // iterate through this.accountResult.keys
-  let functionResults = {};
-  for (const key of contractAccountResults.keys) {
-    // if key is not null
-    if (key) {
-      const keyParts = key.split(":");
-      const functionName = keyParts[1];
-      const value = contractAccountResults.get(key);
-      if (functionResults[functionName] === undefined) {
-        functionResults[functionName] = {};
-        if (functionResults[functionName]["values"] === undefined) {
-          functionResults[functionName]["values"] = [];
-        }
-      }
-      functionResults[functionName]["values"].push(value);
-    } else {
-      near.log("key is null");
-    }
+export function calculateIndexFromResultsArray(accountResults: number[]): string {
+  let accountIndex = new Decimal(0);
+  const accountResultLength = accountResults.length;
+  for (let i = 0; i < accountResultLength; i++) {
+    accountIndex = accountIndex.plus(new Decimal(accountResults[i]));
   }
-  let accountResults = {}; // object of account:funtion -> scores in Decimal
-
-  // we then need to give a score for each accountId:function based on the max and min
-  for (const key of Object.keys(functionResults)) {
-    let functionName = key;
-    const values = functionResults[key]["values"];
-    const max = BigInt(Math.max(...values));
-    const min = BigInt(Math.min(...values));
-    const range = max - min;
-    for (const key of contractAccountResults.keys) {
-      if (key) {
-        const keyParts = key.split(":");
-        const accountId = keyParts[0];
-        const accountFunctionName = keyParts[1];
-        if (accountFunctionName === functionName) {
-          const value = contractAccountResults.get(key) || BigInt(0);
-          const score = new Decimal(value.toString()).sub(new Decimal(min.toString())).dividedBy(new Decimal(range.toString()));
-          if (accountResults[accountId] === undefined) {
-            accountResults[accountId] = {};
-          }
-          accountResults[accountId][functionName] = score;
-        }
-      }
-    }
-  }
-  // we then need to calculate the average of all scores for each accountId in accountResults
-  const accountScores = {};
-  for (const accountId of Object.keys(accountResults)) {
-    let scores: Array<Decimal> = [];
-    for (const functionName of Object.keys(accountResults[accountId])) {
-      scores.push(accountResults[accountId][functionName]);
-    }
-    let averageScore = Decimal.sum(...scores).dividedBy(new Decimal(scores.length));
-    accountScores[accountId] = averageScore.toFixed(2);
-  }
-
-  return accountScores;
+  accountIndex = accountIndex.dividedBy(accountResultLength);
+  return accountIndex.toFixed(2);
 }
 
 enum CallType {
   NFT_COUNT = "nft_supply_for_owner",
   NFT_ITEMS = "nft_tokens_for_owner",
+}
+
+class NFTCountRubric {
+  public static getScoreFromNFTCount(nftCount: number): number {
+    if (nftCount === 0) {
+      return 0;
+    }
+    if (nftCount >= 1) {
+      return 1;
+    }
+    return 0;
+  }
 }
 
 const WHITELIST = {
