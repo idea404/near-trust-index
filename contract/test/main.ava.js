@@ -22,10 +22,10 @@ test.afterEach.always(async (t) => {
   });
 });
 
-test("should return 0.01 if account not in whitelist", async (t) => {
+test("should return null if account not in whitelist", async (t) => {
   const { alice, indexContract } = t.context.accounts;
-  const result = await alice.call(indexContract, "get_index", { account_id: alice.accountId }, { gas: "30" + "0".repeat(12), attachedDeposit: "1" });
-  t.is(result.index, "0.01");
+  const result = await alice.call(indexContract, "get_index_from_history", { account_id: alice.accountId }, { gas: "30" + "0".repeat(12), attachedDeposit: "1" });
+  t.is(result.index, null);
   t.is(result.account_id, alice.accountId);
 });
 
@@ -33,7 +33,7 @@ test("should return 1.00 if account in whitelist", async (t) => {
   // TODO: import whitelist
   const wlAccount = "asac.near";
   const { alice, indexContract } = t.context.accounts;
-  const result = await alice.call(indexContract, "get_index", { account_id: wlAccount }, { gas: "30" + "0".repeat(12), attachedDeposit: "1" });
+  const result = await alice.call(indexContract, "get_index_from_history", { account_id: wlAccount }, { gas: "30" + "0".repeat(12), attachedDeposit: "1" });
   t.is(result.index, "1.00");
   t.is(result.account_id, wlAccount);
 });
