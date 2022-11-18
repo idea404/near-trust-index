@@ -22,7 +22,7 @@ test.afterEach.always(async (t) => {
   });
 });
 
-test("should return null if account not in whitelist", async (t) => {
+test("should return null if account not in whitelist and not in history", async (t) => {
   const { alice, indexContract } = t.context.accounts;
   const result = await alice.call(indexContract, "get_index_from_history", { account_id: alice.accountId }, { gas: "30" + "0".repeat(12), attachedDeposit: "1" });
   t.is(result.index, null);
