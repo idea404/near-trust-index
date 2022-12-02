@@ -40,26 +40,34 @@ class NearTrustIndex {
     }
     // query whitelisted accounts for this account_id using NearPromise
     const thirtyTgas = BigInt("30" + "0".repeat(12));
-    let thisContract = WHITELIST[0];
+    // access first key in WHITELIST
+    let thisContract = Object.keys(this.whitelist)[0];
+    near.log("thisContract: " + thisContract);
     let promise = NearPromise.new(thisContract);
     // iterate through WHITELIST[thisContract] values
-    for (let i = 0; i < WHITELIST[thisContract].length; i++) {
-      const functionName = WHITELIST[thisContract][i];
+    near.log("WHITELIST[thisContract]: " + this.whitelist[thisContract]);
+    for (let i = 0; i < this.whitelist[thisContract].length; i++) {
+      const functionName = this.whitelist[thisContract][i];
       promise = promise.functionCall(functionName, JSON.stringify({ account_id: account_id }), BigInt(0), thirtyTgas);
     }
     // iterate through remaining WHITELIST keys
-    for (let i = 1; i < Object.keys(WHITELIST).length; i++) {
-      thisContract = WHITELIST[i];
+    for (let i = 1; i < Object.keys(this.whitelist).length; i++) {
+      thisContract = Object.keys(this.whitelist)[i];
       let newPromise = NearPromise.new(thisContract);
       // iterate through WHITELIST[thisContract] values
-      for (let i = 0; i < WHITELIST[thisContract].length; i++) {
-        const functionName = WHITELIST[thisContract][i];
+      for (let i = 0; i < this.whitelist[thisContract].length; i++) {
+        const functionName = this.whitelist[thisContract][i];
         newPromise = newPromise.functionCall(functionName, JSON.stringify({ account_id: account_id }), BigInt(0), thirtyTgas);
       }
       promise = promise.and(newPromise);
     }
     // call internalCallback
-    promise = promise.then(NearPromise.new(near.currentAccountId()).functionCall("internalCallback", JSON.stringify({ accountId: account_id }), BigInt(0), thirtyTgas));
+    promise = promise.then(
+      NearPromise
+      .new(near.currentAccountId())
+      .functionCall("internalCallback", JSON.stringify({ accountId: account_id }), BigInt(0), thirtyTgas)
+    );
+
     return promise.asReturn();
   }
 
