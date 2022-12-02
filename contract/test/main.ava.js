@@ -7,6 +7,15 @@ test.beforeEach(async (t) => {
 
   const indexContract = await root.createSubAccount("index");
   await indexContract.deploy("./build/index.wasm");
+  // TODO: import whitelist
+  const asac = await root.createSubAccount("asac");
+  const nearnaut = await root.createSubAccount("nearnautnft");
+  const secret = await root.createSubAccount("secretskelliessociety");
+  const kyc = await root.createSubAccount("kyc");
+  await asac.deploy("./build/test.wasm");
+  await nearnaut.deploy("./build/test.wasm");
+  await secret.deploy("./build/test.wasm");
+  await kyc.deploy("./build/test.wasm");
 
   const alice = await root.createSubAccount("alice", {
     initialBalance: NEAR.parse("100 N").toJSON(),
@@ -22,10 +31,10 @@ test.afterEach.always(async (t) => {
   });
 });
 
-test("should return 0.01 if account not in whitelist", async (t) => {
+test("should return null if account not in whitelist and not in history", async (t) => {
   const { alice, indexContract } = t.context.accounts;
-  const result = await alice.call(indexContract, "get_index", { account_id: alice.accountId }, { gas: "30" + "0".repeat(12), attachedDeposit: "1" });
-  t.is(result.index, "0.01");
+  const result = await alice.call(indexContract, "get_index_from_history", { account_id: alice.accountId });
+  t.is(result.index, null);
   t.is(result.account_id, alice.accountId);
 });
 
@@ -33,7 +42,17 @@ test("should return 1.00 if account in whitelist", async (t) => {
   // TODO: import whitelist
   const wlAccount = "asac.near";
   const { alice, indexContract } = t.context.accounts;
-  const result = await alice.call(indexContract, "get_index", { account_id: wlAccount }, { gas: "30" + "0".repeat(12), attachedDeposit: "1" });
+  const result = await alice.call(indexContract, "get_index_from_history", { account_id: wlAccount });
   t.is(result.index, "1.00");
   t.is(result.account_id, wlAccount);
+});
+
+test.only("should return 0.00 if account with no transactions is not in whitelist and is in history", async (t) => {
+  const { alice, indexContract } = t.context.accounts;
+  await alice.call(indexContract, "calculate_index", { account_id: alice.accountId }, { gas: "300" + "0".repeat(12), attachedDeposit: "1" });
+  const logs = await indexContract.view("get_temp_logs");
+  t.log(logs);
+  const result = await alice.call(indexContract, "get_index_from_history", { account_id: alice.accountId });
+  t.is(result.index, "0.00");
+  t.is(result.account_id, alice.accountId);
 });
