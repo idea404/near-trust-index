@@ -24,19 +24,42 @@ class NearTrustIndex {
   }
 
   @call({ payableFunction: true })
-  calculate_index({ account_id }: { account_id: string }): void {
+  calculate_index({ account_id }: { account_id: string }): NearPromise | void {
     // TODO: require fee
     if (WHITELIST[account_id]) {
       return;
     }
-    return this.internalCalculateIndex(account_id);
+    // query whitelisted accounts for this account_id using NearPromise
+    const thirtyTgas = BigInt("30" + "0".repeat(12));
+    let thisContract = WHITELIST[0];
+    let promise = NearPromise.new(thisContract);
+    // iterate through WHITELIST[thisContract] values
+    for (let i = 0; i < WHITELIST[thisContract].length; i++) {
+      const functionName = WHITELIST[thisContract][i];
+      promise = promise.functionCall(functionName, JSON.stringify({ account_id: account_id }), BigInt(0), thirtyTgas);
+    }
+    // iterate through remaining WHITELIST keys
+    for (let i = 1; i < Object.keys(WHITELIST).length; i++) {
+      thisContract = WHITELIST[i];
+      let newPromise = NearPromise.new(thisContract);
+      // iterate through WHITELIST[thisContract] values
+      for (let i = 0; i < WHITELIST[thisContract].length; i++) {
+        const functionName = WHITELIST[thisContract][i];
+        newPromise = newPromise.functionCall(functionName, JSON.stringify({ account_id: account_id }), BigInt(0), thirtyTgas);
+      }
+      promise = promise.and(newPromise);
+    }
+    // call internalCallback
+    promise = promise.then(NearPromise.new(near.currentAccountId()).functionCall("internalCallback", JSON.stringify({ accountId: account_id }), BigInt(0), thirtyTgas));
+    return promise.asReturn();
   }
 
   @call({ privateFunction: true })
-  internalCallback({ accountId, callCount }: { accountId: string; callCount: number }): void {
+  internalCallback({ accountId }: { accountId: string }): void {
     // loop through all call counts
     this.accountIndexHistoryFailures.set(accountId, "");
     let accountScores: number[] = [];
+    const callCount = near.promiseResultsCount();
     for (let i = 0; i < callCount; i++) {
       let functionName = Object.keys(WHITELIST)[i];
       let mapKey = accountId + ":" + functionName; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
@@ -64,37 +87,6 @@ class NearTrustIndex {
     // we iterate through accountAverageScores
     this.accountIndexHistory.set(accountId, accountIndex)
     this.accountIndexHistoryTimestamp.set(accountId, timestamp)
-  }
-
-  internalCalculateIndex(account_id: string): void {
-    // query whitelisted accounts for this account_id using NearPromise
-    // ----
-    const thirtyTgas = BigInt("30" + "0".repeat(12));
-    let callCount = 0;
-    let thisContract = WHITELIST[0];
-    const promise = NearPromise.new(thisContract);
-    // iterate through WHITELIST[thisContract] values
-    for (let i = 0; i < WHITELIST[thisContract].length; i++) {
-      const functionName = WHITELIST[thisContract][i];
-      promise.functionCall(functionName, JSON.stringify({ account_id: account_id }), BigInt(0), thirtyTgas);
-      callCount++;
-    }
-    // iterate through remaining WHITELIST keys
-    for (let i = 1; i < Object.keys(WHITELIST).length; i++) {
-      thisContract = WHITELIST[i];
-      let newPromise = NearPromise.new(thisContract);
-      promise.then(newPromise);
-      // iterate through WHITELIST[thisContract] values
-      for (let i = 0; i < WHITELIST[thisContract].length; i++) {
-        const functionName = WHITELIST[thisContract][i];
-        newPromise.functionCall(functionName, JSON.stringify({ account_id: account_id }), BigInt(0), thirtyTgas);
-        callCount++;
-      }
-    }
-    // call internalCallback
-    promise.then(NearPromise.new(near.currentAccountId()).functionCall("internalCallback", JSON.stringify({ accountId: account_id, callCount: callCount }), BigInt(0), thirtyTgas));
-    // ----
-    promise.asReturn();
   }
 }
 
