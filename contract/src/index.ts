@@ -27,7 +27,7 @@ class NearTrustIndex {
   @view({})
   get_index_from_history({ account_id }: { account_id: string }): { account_id: string; index: string | null; timestamp: string | null } {
     if (this.whitelist[account_id]) {
-      return { account_id: account_id, index: new Decimal(1.0).toFixed(2), timestamp: near.blockTimestamp().toString() };
+      return { account_id: account_id, index: "1.00", timestamp: near.blockTimestamp().toString() };
     }
     return { account_id: account_id, index: this.accountIndexHistory.get(account_id), timestamp: this.accountIndexHistoryTimestamp.get(account_id) };
   }
