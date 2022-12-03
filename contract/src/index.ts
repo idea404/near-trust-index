@@ -14,7 +14,7 @@ class NearTrustIndex {
     this.accountIndexHistoryTimestamp = new LookupMap("aiht");
     this.accountIndexHistoryFailures = new LookupMap("aihf");
     this.accountResult = new UnorderedMap("ar");
-    this.whitelist = near.currentAccountId() === "index.test.near" ? TEST_WHITELIST : WHITELIST; // maybe move to variable in functions
+    this.whitelist = near.currentAccountId() === "index.test.near" ? TEST_WHITELIST : WHITELIST;
   }
 
   @view({})
@@ -31,41 +31,13 @@ class NearTrustIndex {
     if (this.whitelist[account_id]) {
       return;
     }
-    // query whitelisted accounts for this account_id using NearPromise
-    const thirtyTgas = BigInt("30" + "0".repeat(12));
-    // access first key in WHITELIST
-    let thisContract = Object.keys(this.whitelist)[0];
-    near.log("thisContract: " + thisContract);
-    let promise = NearPromise.new(thisContract);
-    // iterate through WHITELIST[thisContract] values
-    near.log("WHITELIST[thisContract]: " + this.whitelist[thisContract]);
-    for (let i = 0; i < this.whitelist[thisContract].length; i++) {
-      const functionName = this.whitelist[thisContract][i];
-      promise = promise.functionCall(functionName, JSON.stringify({ account_id: account_id }), BigInt(0), thirtyTgas);
-    }
-    // iterate through remaining WHITELIST keys
-    for (let i = 1; i < Object.keys(this.whitelist).length; i++) {
-      thisContract = Object.keys(this.whitelist)[i];
-      let newPromise = NearPromise.new(thisContract);
-      // iterate through WHITELIST[thisContract] values
-      for (let i = 0; i < this.whitelist[thisContract].length; i++) {
-        const functionName = this.whitelist[thisContract][i];
-        newPromise = newPromise.functionCall(functionName, JSON.stringify({ account_id: account_id }), BigInt(0), thirtyTgas);
-      }
-      promise = promise.and(newPromise);
-    }
-    // call internalCallback
-    promise = promise.then(
-      NearPromise
-      .new(near.currentAccountId())
-      .functionCall("internalCallback", JSON.stringify({ accountId: account_id }), BigInt(0), thirtyTgas)
-    );
-
+    let promise = constructPromiseChainFromWhitelist(this.whitelist, account_id, BigInt("30" + "0".repeat(12)))
     return promise.asReturn();
   }
 
   @call({ privateFunction: true })
   internalCallback({ accountId }: { accountId: string }): void {
+    // TODO: refactor 
     // loop through all call counts
     this.accountIndexHistoryFailures.set(accountId, "");
     let accountScores: number[] = [];
@@ -105,6 +77,35 @@ class NearTrustIndex {
     this.accountIndexHistoryTimestamp.set(accountId, timestamp);
   }
 }
+
+export function constructPromiseChainFromWhitelist(whitelist: object, accountId: string, gasAmountPerCall: bigint): NearPromise {
+  let thisContractName = Object.keys(whitelist)[0];
+  let promise = NearPromise.new(thisContractName);
+
+  for (let i = 0; i < whitelist[thisContractName].length; i++) {
+    const functionName = whitelist[thisContractName][i];
+    promise = promise.functionCall(functionName, JSON.stringify({ account_id: accountId }), BigInt(0), gasAmountPerCall);
+  }
+
+  for (let i = 1; i < Object.keys(whitelist).length; i++) {
+    thisContractName = Object.keys(whitelist)[i];
+    let newPromise = NearPromise.new(thisContractName);
+
+    for (let i = 0; i < whitelist[thisContractName].length; i++) {
+      const functionName = whitelist[thisContractName][i];
+      newPromise = newPromise.functionCall(functionName, JSON.stringify({ account_id: accountId }), BigInt(0), gasAmountPerCall);
+    }
+    promise = promise.and(newPromise);
+  }
+
+  promise = promise.then(
+    NearPromise
+    .new(near.currentAccountId())
+    .functionCall("internalCallback", JSON.stringify({ accountId: accountId }), BigInt(0), gasAmountPerCall)
+  );
+
+  return promise;
+};
 
 export function calculateIndexFromScoresArray(accountScores: number[]): string {
   let accountIndex = new Decimal(0);
