@@ -8,7 +8,6 @@ class NearTrustIndex {
   accountIndexHistoryFailures: LookupMap<string>;
   accountResult: UnorderedMap<bigint>;
   whitelist: object;
-  testLogs: string[];
 
   constructor() {
     this.accountIndexHistory = new LookupMap("aih");
@@ -16,12 +15,6 @@ class NearTrustIndex {
     this.accountIndexHistoryFailures = new LookupMap("aihf");
     this.accountResult = new UnorderedMap("ar");
     this.whitelist = near.currentAccountId() === "index.test.near" ? TEST_WHITELIST : WHITELIST; // maybe move to variable in functions
-    this.testLogs = [];
-  }
-
-  @view({})
-  get_temp_logs(): string[] {
-    return this.testLogs;
   }
 
   @view({})
@@ -82,8 +75,8 @@ class NearTrustIndex {
       let accountFunctions = this.whitelist[accountName];
       for (let j = 0; j < accountFunctions.length; j++) {
         let functionName = accountFunctions[j];
-        let mapKey = accountId + ":" + functionName; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
-        this.testLogs.push("mapKey: " + mapKey);
+        let mapKey = accountId + ":" + accountName + ":" + functionName; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
+        near.log("mapKey: " + mapKey);
         try {
           const promiseResult = near.promiseResult(i);
           try {
@@ -107,7 +100,7 @@ class NearTrustIndex {
     const timestamp = near.blockTimestamp().toString();
     const accountIndex = calculateIndexFromScoresArray(accountScores);
     // we iterate through accountAverageScores
-    this.testLogs.push("accountIndex: " + accountIndex);
+    near.log("accountIndex: " + accountIndex);
     this.accountIndexHistory.set(accountId, accountIndex);
     this.accountIndexHistoryTimestamp.set(accountId, timestamp);
   }

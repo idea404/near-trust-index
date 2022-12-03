@@ -21,8 +21,12 @@ test.beforeEach(async (t) => {
     initialBalance: NEAR.parse("100 N").toJSON(),
   });
 
+  const owner = await root.createSubAccount("owner", {
+    initialBalance: NEAR.parse("100 N").toJSON(),
+  });
+
   t.context.worker = worker;
-  t.context.accounts = { root, alice, indexContract };
+  t.context.accounts = { root, alice, owner, indexContract };
 });
 
 test.afterEach.always(async (t) => {
@@ -53,4 +57,12 @@ test("should return 0.00 if account with no transactions is not in whitelist and
   const result = await alice.call(indexContract, "get_index_from_history", { account_id: alice.accountId });
   t.is(result.index, "0.00");
   t.is(result.account_id, alice.accountId);
+});
+
+test("should return 1.00 for account with at least 1 NFT for all whitelisted accounts with functions", async (t) => {
+  const { owner, indexContract } = t.context.accounts;
+  await owner.call(indexContract, "calculate_index", { account_id: owner.accountId }, { gas: "300" + "0".repeat(12), attachedDeposit: "1" });
+  const result = await owner.call(indexContract, "get_index_from_history", { account_id: owner.accountId });
+  t.is(result.index, "1.00");
+  t.is(result.account_id, owner.accountId);
 });
