@@ -24,9 +24,15 @@ test.beforeEach(async (t) => {
   const owner = await root.createSubAccount("owner", {
     initialBalance: NEAR.parse("100 N").toJSON(),
   });
+  const random = await root.createSubAccount("random", {
+    initialBalance: NEAR.parse("100 N").toJSON(),
+  });
+  const errors = await root.createSubAccount("errors", {
+    initialBalance: NEAR.parse("100 N").toJSON(),
+  });
 
   t.context.worker = worker;
-  t.context.accounts = { root, alice, owner, indexContract };
+  t.context.accounts = { root, alice, owner, random, errors, indexContract };
 });
 
 test.afterEach.always(async (t) => {
@@ -49,6 +55,25 @@ test("should return 1.00 if account in whitelist", async (t) => {
   const result = await alice.call(indexContract, "get_index_from_history", { account_id: wlAccount });
   t.is(result.index, "1.00");
   t.is(result.account_id, wlAccount);
+});
+
+test("should return a value between 0.00 and 1.00 for random account", async (t) => {
+  const { random, indexContract } = t.context.accounts;
+  await random.call(indexContract, "calculate_index", { account_id: random.accountId }, { gas: "300" + "0".repeat(12), attachedDeposit: "1" });
+  const result = await random.call(indexContract, "get_index_from_history", { account_id: random.accountId });
+  const index = parseFloat(result.index);
+  t.true(index >= 0);
+  t.true(index <= 1);
+  t.is(result.account_id, random.accountId);
+});
+
+test("should return a list of objects in the errors key of the result", async (t) => {
+  const { errors, indexContract } = t.context.accounts;
+  await errors.call(indexContract, "calculate_index", { account_id: errors.accountId }, { gas: "300" + "0".repeat(12), attachedDeposit: "1" });
+  const result = await errors.call(indexContract, "get_index_from_history", { account_id: errors.accountId });
+  t.true(Array.isArray(result.errors));
+  t.true(result.errors.length > 0);
+  t.is(result.account_id, errors.accountId);
 });
 
 test("should return 0.00 if account with no transactions is not in whitelist and is in history", async (t) => {
