@@ -1,4 +1,4 @@
-import { NearBindgen, near, call, view, LookupMap, NearPromise, UnorderedMap } from "near-sdk-js";
+import { NearBindgen, near, call, view, LookupMap, NearPromise, UnorderedMap, assert } from "near-sdk-js";
 import Decimal from "decimal.js";
 
 @NearBindgen({})
@@ -37,48 +37,67 @@ class NearTrustIndex {
 
   @call({ privateFunction: true })
   internalCallback({ accountId }: { accountId: string }): void {
-    // TODO: refactor 
-    // loop through all call counts
-    this.accountIndexHistoryFailures.set(accountId, "");
-    let accountScores: number[] = [];
     const callCount = near.promiseResultsCount();
-    for (let i = 0; i < callCount; i++) {
-      let accountName = Object.keys(this.whitelist)[i];
-      let accountFunctions = this.whitelist[accountName];
-      for (let j = 0; j < accountFunctions.length; j++) {
-        let functionName = accountFunctions[j];
-        let mapKey = accountId + ":" + accountName + ":" + functionName; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
-        near.log("mapKey: " + mapKey);
-        try {
-          const promiseResult = near.promiseResult(i);
-          try {
-            const promiseObject = JSON.parse(promiseResult);
-            this.accountResult.set(mapKey, promiseObject);
-            const score = functionName == CallType.NFT_COUNT ? NFTCountRubric.getScoreFromNFTCount(promiseObject) : 0;
-            accountScores.push(score);
-          } catch (error) {
-            const msg = "Failed saving result from successful promise for id: " + i + " with error message: " + error.message;
-            near.log(msg);
-            this.accountIndexHistoryFailures.set(mapKey, msg);
-          }
-        } catch (error) {
-          const msg = `Contract Function ${i} threw error`;
-          near.log(msg);
-          this.accountIndexHistoryFailures.set(mapKey, msg);
-        }
-      }
-    }
-    // we save the new scores for every account and timestamp every record
+    const whitelist = this.whitelist;
+    const accountResult = this.accountResult;
+    const accountIndexHistoryFailures = this.accountIndexHistoryFailures;
+
+    let accountScores: number[] = getRawAccountScoresFromPromises(
+      accountId, accountIndexHistoryFailures, callCount, whitelist, accountResult
+    );
+
     const timestamp = near.blockTimestamp().toString();
     const accountIndex = calculateIndexFromScoresArray(accountScores);
-    // we iterate through accountAverageScores
-    near.log("accountIndex: " + accountIndex);
+    near.log("accountIndex for " + accountId + ": " + accountIndex)
     this.accountIndexHistory.set(accountId, accountIndex);
     this.accountIndexHistoryTimestamp.set(accountId, timestamp);
   }
 }
 
-export function constructPromiseChainFromWhitelist(whitelist: object, accountId: string, gasAmountPerCall: bigint): NearPromise {
+function getRawAccountScoresFromPromises(
+  accountId: string, 
+  accountIndexHistoryFailures: LookupMap<string>, 
+  callCount: bigint, 
+  whitelist: object, 
+  accountResult: UnorderedMap<bigint>
+) {
+  let accountScores: number[] = [];
+  accountIndexHistoryFailures.set(accountId, "");
+
+  for (let i = 0; i < callCount; i++) {
+    let accountName = Object.keys(whitelist)[i];
+    let accountFunctions = whitelist[accountName];
+
+    for (let j = 0; j < accountFunctions.length; j++) {
+      let functionName = accountFunctions[j];
+      let mapKey = accountId + ":" + accountName + ":" + functionName; // nested collections cumbersome: https://docs.near.org/develop/contracts/storage#map
+      near.log("mapKey: " + mapKey);
+      try {
+        const promiseResult = near.promiseResult(i);
+
+        try {
+          const promiseObject = JSON.parse(promiseResult);
+          accountResult.set(mapKey, promiseObject);
+          const score = functionName == CallType.NFT_COUNT ? NFTCountRubric.getScoreFromNFTCount(promiseObject) : 0;
+          accountScores.push(score);
+        } catch (error) {
+          const msg = "Failed saving result from successful promise for id: " + i + " with error message: " + error.message;
+          near.log(msg);
+          accountIndexHistoryFailures.set(mapKey, msg);
+        }
+
+      } catch (error) {
+        const msg = `Contract Function ${i} threw error`;
+        near.log(msg);
+        accountIndexHistoryFailures.set(mapKey, msg);
+      }
+    }
+  }
+
+  return accountScores;
+}
+
+function constructPromiseChainFromWhitelist(whitelist: object, accountId: string, gasAmountPerCall: bigint): NearPromise {
   let thisContractName = Object.keys(whitelist)[0];
   let promise = NearPromise.new(thisContractName);
 
@@ -100,20 +119,28 @@ export function constructPromiseChainFromWhitelist(whitelist: object, accountId:
 
   promise = promise.then(
     NearPromise
-    .new(near.currentAccountId())
-    .functionCall("internalCallback", JSON.stringify({ accountId: accountId }), BigInt(0), gasAmountPerCall)
+      .new(near.currentAccountId())
+      .functionCall("internalCallback", JSON.stringify({ accountId: accountId }), BigInt(0), gasAmountPerCall)
   );
 
   return promise;
 };
 
-export function calculateIndexFromScoresArray(accountScores: number[]): string {
+function calculateIndexFromScoresArray(accountScores: number[]): string {
   let accountIndex = new Decimal(0);
   const accountResultLength = accountScores.length;
+
+  if (accountResultLength === 0) {
+    near.log("No scores to calculate index from");
+    return "0.00";
+  }
+
   for (let i = 0; i < accountResultLength; i++) {
     accountIndex = accountIndex.plus(new Decimal(accountScores[i]));
   }
+
   accountIndex = accountIndex.dividedBy(accountResultLength);
+
   return accountIndex.toFixed(2);
 }
 
