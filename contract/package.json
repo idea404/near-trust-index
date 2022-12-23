@@ -15,7 +15,9 @@
     "lint": "npm run lint:src && npm run lint:test",
       "lint:src": "eslint src --fix",
       "lint:test": "eslint test --fix",
-    "format": "prettier --write ."
+    "format": "npm run format:src && npm run format:test",
+      "format:src": "prettier --write src",
+      "format:test": "prettier --write test"
   },
   "repository": {
     "type": "git",
