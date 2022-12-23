@@ -11,7 +11,9 @@
     "build": "npm run build:contract && npm run build:test",
       "build:contract": "near-sdk-js build src/index.ts build/index.wasm",	
       "build:test": "near-sdk-js build test/contracts/test.ts build/test.wasm",
-    "test": "ava"
+    "test": "ava",
+    "lint": "eslint . --fix",
+    "format": "prettier --write ."
   },
   "repository": {
     "type": "git",
@@ -33,9 +35,15 @@
     "near-sdk-js": "0.6.0-0"
   },
   "devDependencies": {
+    "@nearfoundation/near-prettier-config": "^1.0.1",
+    "@typescript-eslint/eslint-plugin": "^5.42.0",
     "ava": "^4.3.3",
+    "eslint": "^8.26.0",
+    "eslint-config-near": "^1.0.3",
+    "eslint-config-prettier": "^8.5.0",
     "near-workspaces": "^3.2.2",
-    "typescript": "^4.7.4"
+    "prettier": "^2.7.1",
+    "typescript": "^4.8.4"
   },
   "ava": {
     "files": [

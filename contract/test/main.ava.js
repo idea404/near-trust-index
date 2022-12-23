@@ -1,5 +1,5 @@
-import { Worker, NEAR } from "near-workspaces";
-import test from "ava";
+import test from 'ava';
+import { Worker, NEAR } from 'near-workspaces';
 
 test.beforeEach(async (t) => {
   const worker = await Worker.init();
@@ -37,7 +37,7 @@ test.beforeEach(async (t) => {
 
 test.afterEach.always(async (t) => {
   await t.context.worker.tearDown().catch((error) => {
-    console.log("Failed to tear down the worker:", error);
+    console.log('Failed to tear down the worker:', error);
   });
 });
 
