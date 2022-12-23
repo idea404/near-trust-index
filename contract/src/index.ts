@@ -42,6 +42,7 @@ class NearTrustIndex {
 
   @call({ payableFunction: true })
   calculate_index({ account_id }: { account_id: string }): NearPromise | void {
+  calculate_index({ account_id }: { account_id: string }): NearPromise | void {
     // TODO: require fee
     if (this.whitelist[account_id]) {
       return;
@@ -198,6 +199,7 @@ class NFTCountRubric {
   }
 }
 
+// TODO: implement xcc logic for NFT_ITEMS
 // TODO: implement xcc logic for NFT_ITEMS
 const WHITELIST = {
   'asac.near': [CallType.NFT_COUNT],
