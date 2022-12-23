@@ -1,14 +1,14 @@
-import { NearBindgen, view, near } from "near-sdk-js";
+import { NearBindgen, view, near } from 'near-sdk-js';
 
 @NearBindgen({})
 class TestContractBase {
   @view({})
   nft_supply_for_owner({ account_id }: { account_id: string }): number {
-    if (account_id === "owner.test.near") {
+    if (account_id === 'owner.test.near') {
       return 1;
     }
 
-    if (account_id === "random.test.near") {
+    if (account_id === 'random.test.near') {
       const randomStringBytes: string = near.randomSeed();
       const randomStringNumberList = /\d+/.exec(randomStringBytes);
       if (!randomStringNumberList) {
@@ -20,8 +20,8 @@ class TestContractBase {
       return randomBit;
     }
 
-    if (account_id === "errors.test.near") {
-      throw new Error("Error in nft_supply_for_owner");
+    if (account_id === 'errors.test.near') {
+      throw new Error('Error in nft_supply_for_owner');
     }
 
     return 0;
