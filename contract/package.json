@@ -12,7 +12,9 @@
       "build:contract": "near-sdk-js build src/index.ts build/index.wasm",	
       "build:test": "near-sdk-js build test/contracts/test.ts build/test.wasm",
     "test": "ava",
-    "lint": "eslint . --fix",
+    "lint": "npm run lint:src && npm run lint:test",
+      "lint:src": "eslint src --fix",
+      "lint:test": "eslint test --fix",
     "format": "prettier --write ."
   },
   "repository": {
