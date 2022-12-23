@@ -32,7 +32,7 @@ test.beforeEach(async (t) => {
   });
 
   t.context.worker = worker;
-  t.context.accounts = { root, alice, owner, random, errors, indexContract };
+  t.context.accounts = { alice, errors, indexContract, owner, random, root };
 });
 
 test.afterEach.always(async (t) => {
@@ -59,9 +59,9 @@ test("should return 1.00 if account in whitelist", async (t) => {
 
 test("should return a value between 0.00 and 1.00 for random account", async (t) => {
   const { random, indexContract } = t.context.accounts;
-  await random.call(indexContract, "calculate_index", { account_id: random.accountId }, { gas: "300" + "0".repeat(12), attachedDeposit: "1" });
+  await random.call(indexContract, "calculate_index", { account_id: random.accountId }, { attachedDeposit: "1", gas: "300" + "0".repeat(12) });
   const result = await random.call(indexContract, "get_index_from_history", { account_id: random.accountId });
-  const index = parseFloat(result.index);
+  const index = Number.parseFloat(result.index);
   t.true(index >= 0);
   t.true(index <= 1);
   t.is(result.account_id, random.accountId);
@@ -69,7 +69,7 @@ test("should return a value between 0.00 and 1.00 for random account", async (t)
 
 test("should return a list of objects in the errors key of the result", async (t) => {
   const { errors, indexContract } = t.context.accounts;
-  await errors.call(indexContract, "calculate_index", { account_id: errors.accountId }, { gas: "300" + "0".repeat(12), attachedDeposit: "1" });
+  await errors.call(indexContract, "calculate_index", { account_id: errors.accountId }, { attachedDeposit: "1", gas: "300" + "0".repeat(12) });
   const result = await errors.call(indexContract, "get_index_from_history", { account_id: errors.accountId });
   t.true(Array.isArray(result.errors));
   t.true(result.errors.length > 0);
@@ -78,7 +78,7 @@ test("should return a list of objects in the errors key of the result", async (t
 
 test("should return 0.00 if account with no transactions is not in whitelist and is in history", async (t) => {
   const { alice, indexContract } = t.context.accounts;
-  await alice.call(indexContract, "calculate_index", { account_id: alice.accountId }, { gas: "300" + "0".repeat(12), attachedDeposit: "1" });
+  await alice.call(indexContract, "calculate_index", { account_id: alice.accountId }, { attachedDeposit: "1", gas: "300" + "0".repeat(12) });
   const result = await alice.call(indexContract, "get_index_from_history", { account_id: alice.accountId });
   t.is(result.index, "0.00");
   t.is(result.account_id, alice.accountId);
@@ -86,7 +86,7 @@ test("should return 0.00 if account with no transactions is not in whitelist and
 
 test("should return 1.00 for account with at least 1 NFT for all whitelisted accounts with functions", async (t) => {
   const { owner, indexContract } = t.context.accounts;
-  await owner.call(indexContract, "calculate_index", { account_id: owner.accountId }, { gas: "300" + "0".repeat(12), attachedDeposit: "1" });
+  await owner.call(indexContract, "calculate_index", { account_id: owner.accountId }, { attachedDeposit: "1", gas: "300" + "0".repeat(12) });
   const result = await owner.call(indexContract, "get_index_from_history", { account_id: owner.accountId });
   t.is(result.index, "1.00");
   t.is(result.account_id, owner.accountId);
